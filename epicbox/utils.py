@@ -3,7 +3,6 @@ from __future__ import annotations
 import errno
 import os
 import select
-import signal
 import socket
 import struct
 import time
@@ -15,6 +14,7 @@ import structlog
 from docker import constants as docker_consts, DockerClient
 from docker.errors import DockerException
 from docker.types import Ulimit
+from docker.utils.socket import read as docker_socket_read
 from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
 from urllib3 import Retry
@@ -31,6 +31,8 @@ _DOCKER_CLIENTS = {}
 #: Recoverable IO/OS Errors.
 ERRNO_RECOVERABLE = (errno.EINTR, errno.EDEADLK, errno.EWOULDBLOCK)
 
+SIGKILL = 9
+SIGXCPU = 24
 
 def get_docker_client(
     base_url: str | None = None,
@@ -135,13 +137,7 @@ def _socket_read(sock: socket.SocketIO, n: int = 4096) -> bytes | None:
 
     :return: A bytes object or `None` at end of stream.
     """
-    try:
-        data = os.read(sock.fileno(), n)
-    except OSError as e:
-        if e.errno in ERRNO_RECOVERABLE:
-            return b""
-        raise
-    return data or None
+    return docker_socket_read(sock, n) or None
 
 
 def _socket_write(sock: socket.SocketIO, data: bytes) -> int:
@@ -300,4 +296,4 @@ def truncate_result(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def is_killed_by_sigkill_or_sigxcpu(status: int) -> bool:
-    return status - 128 in {signal.SIGKILL, signal.SIGXCPU}
+    return status - 128 in {SIGKILL, SIGXCPU}
