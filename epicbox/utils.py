@@ -193,7 +193,10 @@ def docker_communicate(
         "logs": 0,
     }
     sock = docker_client.api.attach_socket(container.id, params=params)
-    sock._sock.setblocking(False)  # Make socket non-blocking
+    if hasattr(sock, '_sock'):
+        sock = sock._sock
+
+    sock.setblocking(False)  # Make socket non-blocking
     log.info(
         "Attached to the container",
         params=params,
@@ -202,7 +205,7 @@ def docker_communicate(
     )
     if not stdin:
         log.debug("There is no input data. Shut down the write half of the socket.")
-        sock._sock.shutdown(socket.SHUT_WR)
+        sock.shutdown(socket.SHUT_WR)
     if start_container:
         container.start()
         log.info("Container started")
@@ -244,7 +247,7 @@ def docker_communicate(
                     "All input data has been sent. Shut down the write "
                     "half of the socket.",
                 )
-                sock._sock.shutdown(socket.SHUT_WR)
+                sock.shutdown(socket.SHUT_WR)
 
         if not is_io_active:
             # Save CPU time
